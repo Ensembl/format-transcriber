@@ -74,14 +74,15 @@ my $pass = 'testpass';
 my $ftpd = Bio::EnsEMBL::Test::FTPD->new($user, $pass, binpath . '/testConfigs');
 
 # Test we have an FTP server
-my $ftp_base = "ftp://$user:$pass\@localhost:" . $ftpd->port;
+my $ftp_base = "ftp://$user:$pass\@0.0.0.0:" . $ftpd->port;
 my $ftp_url = $ftp_base . '/basic.conf';
-my $ftp = Net::FTP->new('localhost', Port => $ftpd->port);
+my $ftp = Net::FTP->new('0.0.0.0', Port => $ftpd->port);
 ok($ftp, 'Do we have a valid ftp client');
 ok($ftp->login($user, $pass), 'Login to ftp server');
 ok($ftp->quit, 'Close the ftp connection');
 
 # Fetching config via FTP
+note $ftp_url;
 ok($doc = parse_config($ftp_url), 'Fetching via FTP');
 cmp_deeply($doc, $expected, "Retreived config via FTP");
 
