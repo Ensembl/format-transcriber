@@ -4,7 +4,11 @@ requires 'JSON';
 requires 'PerlIO::gzip';
 
 # From ensembl-test
+requires 'Net::FTPServer';
+requires 'Authen::PAM';
+
 requires 'IO::Scalar';
+requires 'IO::Stringy';
 requires 'Archive::Zip';
 requires 'BSD::Resource';
 requires 'File::Sync';
