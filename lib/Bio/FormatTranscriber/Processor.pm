@@ -260,20 +260,20 @@ sub eval_param {
     return
 	unless($param);
 
-    if($param =~ /{{[\w_]+}}/) {
+    if($param =~ /\{\{[\w_]+}}/) {
 	# Annoying special case because the record has to be passed by reference
 	$param = $values->{RECORD}
-  	  if($param =~ /{{record}}/i);
+  	  if($param =~ /\{\{record}}/i);
 	$param = $values->{LAST_RECORD}
-	  if($param =~ /{{last_record}}/i);
+	  if($param =~ /\{\{last_record}}/i);
 	$param = $values->{LAST_WRITTEN}
-	  if($param =~ /{{last_written}}/i);
+	  if($param =~ /\{\{last_written}}/i);
 
 	# Find any {{key}} in the string, then if there's an uppercase of {{KEY}}
 	# in our lookup parameter set, substitute it.
 	# Otherwise leave the original value in place. Find all different {{key1}},
 	# {{key2}}, ... in the string in one go.
-	$param =~ s/{{([\w_]+)}}/$values->{uc($1)}?$values->{uc($1)}:"{{$1}}"/eg;
+	$param =~ s/\{\{([\w_]+)}}/$values->{uc($1)}?$values->{uc($1)}:"\{\{$1}}"/eg;
     }
 
     if($param =~ /\[\[([\w_|]+)\]\]/) {
