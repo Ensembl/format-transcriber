@@ -74,6 +74,7 @@ sub get_options {
     my $help;
     my @species;
     my $group = 'core';
+    my $include_scaffold;
 
     GetOptions(
 	"db_host|dbhost|host=s"           => \$db_host,
@@ -83,6 +84,7 @@ sub get_options {
 	"version|release=i"               => \$release,
 	"species=s@"                      => \@species,
 	"help"                            => \$help,
+        "include_scaffold"                => \$include_scaffold,
 	);
     
     if ($help) {
@@ -116,16 +118,17 @@ sub get_options {
 	@dbas = @{Bio::EnsEMBL::Registry->get_all_DBAdaptors(-GROUP => 'core')};
     }
     
-    return @dbas;
+    return @dbas, $include_scaffold;
 }
 
 run();
 
 sub run {
     my @dbas = get_options();
+    my $include_scaffold = pop @dbas;
     foreach my $dbadaptor (@dbas) {
 	fetch_meta($dbadaptor);
-	fetch_INSDC($dbadaptor);
+	fetch_INSDC($dbadaptor, $include_scaffold);
 	fetch_UCSC($dbadaptor);
     }
 
@@ -241,7 +244,7 @@ sub fetch_meta {
 # Go fetch all mappings for INSDC to our chromosome identifier
 
 sub fetch_INSDC {
-    my ($dbadaptor) = @_;
+    my ($dbadaptor, $include_scaffold) = @_;
 
     print STDERR "Examining " . $dbadaptor->species() . "\n";
 
@@ -250,12 +253,22 @@ sub fetch_INSDC {
 
     # Fetch all the chromosome slices
     my $slice_adaptor = $dbadaptor->get_SliceAdaptor();
-    my $slices = $slice_adaptor->fetch_all('chromosome');
+    my $slices;
+    if ($include_scaffold) {
+      $slices = $slice_adaptor->fetch_all('toplevel');
+    } else {
+      $slices = $slice_adaptor->fetch_all('chromosome');
+    }
+    my $species = $dbadaptor->species();
 
-    $has_chromosome{$dbadaptor->species()} = 0;
+    $has_chromosome{$species} = 0;
 
     while(my $slice = shift @{$slices}) {
-	$has_chromosome{$dbadaptor->species()} = 1;
+	$has_chromosome{$species} = 1;
+        my $slice_name = $slice->seq_region_name;
+
+        # Store initial name as well
+        $insdc_to_ensembl{$species}{$slice_name} = $slice_name;
 
 	my $synonyms = $slice->get_all_synonyms('INSDC');
 
@@ -263,12 +276,9 @@ sub fetch_INSDC {
 	    # We have at least one INSDC synonym for this species
 	    $found_insdc = 1;
 
-	    # We only care about chromosomes for mapping purposes
-	    if($slice->coord_system_name() eq 'chromosome') {
-		# Based on older scripts we're going to assume it'll be
-		# the first (and only) synonym
-		$insdc_to_ensembl{$dbadaptor->species()}{$synonyms->[0]->name()} = $slice->seq_region_name;
-	    }
+	    # Based on older scripts we're going to assume it'll be
+            # the first (and only) synonym
+	    $insdc_to_ensembl{$species}{$synonyms->[0]->name()} = $slice_name;
 	}
 
     }
