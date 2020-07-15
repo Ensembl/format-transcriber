@@ -237,8 +237,8 @@ sub write_record {
 
     # If the object knows how to turn itself in to it's native format,
     # let it take care of itself
-    if($record->can('combine_fields')) {
-	print { $self->{out_handle} } $record->combine_fields;
+    if($record->can('create_record')) {
+	print { $self->{out_handle} } $record->create_record;
 
     # If the format is GTF, get the code to call combine_fields method
     # in Bio::EnsEMBL::IO::Writer::GTF.
