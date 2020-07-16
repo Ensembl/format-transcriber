@@ -1,7 +1,10 @@
+dist: trusty
+
 language: "perl"
 
 perl:
   - "5.14"
+  - "5.26"
   
 sudo: false
   
@@ -29,3 +32,7 @@ notifications:
   email:
     on_success: always
     on_failure: always
+  slack:
+    rooms:
+      secure: b55S5Vdf+aDpTHL6l9L3ekAdA9yA2569A5sWH3SP7SWhD2xHZ7Y89jkULEConTj8plzFh9PK+HfKbR2c5nizKMfJL4HmsmVST93gihidC1FRg6sv56tCJvTXHQ4X37uXhaI3sepOVMSQYxYMveN2TClYiCo5LydTWUyDrC5ddyRLX45UCzpD0XSOsiOMsVoyjCHCFGitAUrmKGHCyPWsVaeo8vfXiU6kU9zkGSIej4H3dUhevGD//0NHs52bU67bFUr7lk2KObwCGWREzTaHUOFMvKOGdnLlMLUMdMOPqzDlwzBhuz10urpbU/ZD3fsUexB93ApH4eLBontX7KYx1mhDteuYO4XIokE2gV2qMO4lUilReB8RHYG+exTpLT9Bp+P89nkWXz1SPvnsCd2dHr12k9x6PRgnhgSX8+I2BkC0mFYu0kfP2utSS6vYbqgK+ZejC21GbbABlKZG/cCVTLY+wME4IDc5zLwLwUKzGG/PTVDNYI5nE7j0TFXnpFOOCFQdJ2otVbXhlpMk9dS1uZ7vMd8E/lrddtmRmf4QI85WobptdLCjlQ9UacUaHvHhU3YbNiPOyb8XwCRA4J+FIr2AxTJPfNwsSCCD3guyvlKwXlZfWGQJP/YyCa62kimrYtvTQ8PDJnbArzByqX/76OhF5eedoqANjx20c1Yk2v8=
+    on_failure: change

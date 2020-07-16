@@ -119,7 +119,7 @@ sub dump_config {
 
     my $json_str;
     eval {
-	$json_str = to_json($config, { ascii => 1, pretty => 1 });
+	$json_str = to_json($config, { ascii => 1, pretty => 1, canonical => 1});
     };
     if($@) {
 	throw("Unable to encode config: $@");
