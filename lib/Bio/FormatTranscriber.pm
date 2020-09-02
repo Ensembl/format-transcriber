@@ -54,6 +54,8 @@ use Bio::EnsEMBL::IO::Writer;
 use Bio::FormatTranscriber::Config qw/parse_config/;
 use Scalar::Util qw/openhandle/;
 
+use Bio::EnsEMBL::IO::Writer::GTF qw/combine_fields/;
+
 my $PARSERS = {FASTA => 'Bio::EnsEMBL::IO::Parser::Fasta',
                      GFF3  => 'Bio::FormatTranscriber::Parser::GFF3',
                      GTF   => 'Bio::FormatTranscriber::Parser::GTF',
@@ -62,7 +64,7 @@ my $PARSERS = {FASTA => 'Bio::EnsEMBL::IO::Parser::Fasta',
 
 my $OBJECTS = {FASTA => 'Bio::EnsEMBL::IO::Object::ColumnBasedGeneric',
                GFF3  => 'Bio::EnsEMBL::IO::Object::ColumnBasedGeneric',
-               GTF   => 'Bio::EnsEMBL::IO::Object::GTF'
+               GTF   => 'Bio::EnsEMBL::IO::Writer::GTF'
 };
 
 my $SERIALIZERS = {Fasta => 'Bio::EnsEMBL::Utils::IO::FASTASerializer'
@@ -237,6 +239,11 @@ sub write_record {
     # let it take care of itself
     if($record->can('create_record')) {
 	print { $self->{out_handle} } $record->create_record;
+
+    # If the format is GTF, get the code to call combine_fields method
+    # in Bio::EnsEMBL::IO::Writer::GTF.
+    } elsif($OBJECTS->{$format}) {
+	print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record) . "\n";
 
     # Otherwise use the external serializer
     } elsif($SERIALIZERS->{$format}) {
