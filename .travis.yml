@@ -17,9 +17,9 @@ env:
   - COVERALLS=true
 
 before_install:
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-test.git
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl.git
-    - git clone --branch master --depth 1 https://github.com/Ensembl/ensembl-io.git
+    - git clone --branch main --depth 1 https://github.com/Ensembl/ensembl-test.git
+    - git clone --branch main --depth 1 https://github.com/Ensembl/ensembl.git
+    - git clone --branch main --depth 1 https://github.com/Ensembl/ensembl-io.git
 
 install:
     - cpanm -v --installdeps --with-recommends --notest --cpanfile ensembl/cpanfile .
