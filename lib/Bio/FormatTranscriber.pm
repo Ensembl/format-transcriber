@@ -83,9 +83,9 @@ my $SERIALIZERS = {Fasta => 'Bio::EnsEMBL::Utils::IO::FASTASerializer',
                     #GFF3  => 'Bio::EnsEMBL::Utils::IO::GFFSerializer',
 
 use Data::Dumper;
-print Dumper( $PARSERS );
-print Dumper( $OBJECTS );
-print Dumper( $SERIALIZERS );
+#print Dumper( $PARSERS );
+#print Dumper( $OBJECTS );
+#print Dumper( $SERIALIZERS );
 
 =head2 new
 
@@ -124,7 +124,7 @@ sub new {
 
 	$self->{output_obj} = $OBJECTS->{ $self->{out_format} };
 	eval "use $self->{output_obj}";
-    print "use ".$self->{output_obj}."\n";
+    #print "use ".$self->{output_obj}."\n";
     # exit;
 	if($@) {
 	    throw("Error loading module for output format $output_format: $@" );
@@ -137,16 +137,16 @@ sub new {
 
     # Initialize the parsers and filters
     $self->{parser_obj} = $PARSERS->{ $self->{format} };
-    print $self->{parser_obj} . "\n"; 
+    #print $self->{parser_obj} . "\n"; 
     eval "use $self->{parser_obj}";
     if($@) {
 	throw("Error loading module for format $format: $@");
     }
 
     # Create the processor for records for the given format
-    print $self->{format} ." vs $format\n";
+    #print $self->{format} ." vs $format\n";
     my $processor = 'Bio::FormatTranscriber::Processor::' . $self->{format};
-    print "Processor: $processor\n";
+    #print "Processor: $processor\n";
     eval "use $processor";
     if($@) {
 	throw("Error loading processor module for format $format: $@");
@@ -181,9 +181,9 @@ sub transcribe_file {
     {
         $parser = "$self->{parser_obj}"->open($infile);
         $self->{parser} = $parser;
-        print "self parser: $parser\n";
+        #print "self parser: $parser\n";
     }
-    print "parser: " . Dumper($parser);
+    #print "parser: " . Dumper($parser);
     # exit;
 
     # Use the handle we've been passed or create the output handle
@@ -223,16 +223,16 @@ sub transcribe_file {
     # Because the Fasta parser is mixed case we need to be a little ugly in
     # how we get the format to pass to the writer.
     my $format_str = (split '::', $self->{parser})[-1];
-    print "format_str (after parsing): $format_str\n";
-    print "parser: " . Dumper($parser). "\n";
+    #print "format_str (after parsing): $format_str\n";
+    #print "parser: " . Dumper($parser). "\n";
 
     # This will handle looping through GXF and Fasta type files which the
     # parsers can produce objects for.
     while($parser->next()) {
 	my $rec = $self->{processor}->process_record($parser->create_object);
-        print "rec: " . Dumper ($rec);
-        print "format_str (while in parser loop): $format_str\n";
-        print "Calling write_record for \$rec of object $self\n";
+        #print "rec: " . Dumper ($rec);
+        #print "format_str (while in parser loop): $format_str\n";
+        #print "Calling write_record for \$rec of object $self\n";
 	    $self->write_record($rec);
 	    # unless($rec->{delete});
         # print "HERE!\n";
@@ -269,15 +269,15 @@ sub write_record {
     my $self = shift;
     my $record = shift;
 
-    print "write_record, OBJECT: " . Dumper( $OBJECTS );
+    #print "write_record, OBJECT: " . Dumper( $OBJECTS );
 
     # What's the format of the record being written
     my $format = (split '::', ref($record))[-1];
-    print "format of record ($record) to be written: $format\n";
+    #print "format of record ($record) to be written: $format\n";
 
     # adding in output obj type as not yet defined anywhere
     # $self->{output_obj} = $OBJECTS->{$format};
-    print "Output format should be: ". $self->{out_format} ."\n";
+    #print "Output format should be: ". $self->{out_format} ."\n";
     # exit;
     # print Dumper $self->{output_obj};
 
@@ -296,28 +296,28 @@ sub write_record {
             my $value = $record->{ $field } || ".";
             if ($field eq "attributes") {
                 my $attrib_keys = $record->{$field};
-                print "attrib keys: ". Dumper($attrib_keys) . "\n";
+                #print "attrib keys: ". Dumper($attrib_keys) . "\n";
                 if ($self->{out_format} eq "GFF3") {
                     # based on rule here https://github.com/Ensembl/ensembl-io/blob/main/modules/Bio/EnsEMBL/Utils/IO/GFFSerializer.pm#L226
                     my @ordered_keys = qw(ID Name Alias Parent Target Gap Derives_from Note Dbxref Ontology_term Is_circular);
                     foreach my $attrib_key (sort keys %{ $attrib_keys }) {
-                        print "key: $attrib_key\n";
+                        #print "key: $attrib_key\n";
                         # add to end of ordered keys if not already present
                         if (!grep /$attrib_key/, @ordered_keys) {
                             push @ordered_keys, $attrib_key;
                         }
                     }
-                    print "Ordered keys: @ordered_keys\n";
-                    print $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
+                    #print "Ordered keys: @ordered_keys\n";
+                    #print $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
                     print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
                 } elsif ($self->{out_format} eq "GTF") {
-                    print $OBJECTS->{$format}->combine_fields($record->$field, undef, '; ', 1, ' ', '"');
+                    #print $OBJECTS->{$format}->combine_fields($record->$field, undef, '; ', 1, ' ', '"');
                     print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->$field, undef, '; ', 1, ' ', '"') . "\n";
                 }
                 # exit;
             } else {
                 # print "$field => $value\n";
-                print "$value\t";
+                #print "$value\t";
                 print { $self->{out_handle} } "$value\t";
             }
         }
@@ -325,7 +325,7 @@ sub write_record {
     # only print out FASTA sequence if output is GFF3 or FASTA output formats
     } elsif (($format eq "Fasta") && $self->{out_format} ne "GTF") {
         my $serializer = $self->get_serializer_by_type($format);
-        print "format is $format\n";  
+        #print "format is $format\n";  
         $serializer->print_Seq($record);
     }
 
@@ -428,7 +428,7 @@ sub get_serializer_by_type {
     my $self = shift;
     my $type = shift;
 
-    print "Attemping to get serializer by type: $type\n";
+    #print "Attemping to get serializer by type: $type\n";
 
     # If we don't have an existing serializer
     unless($self->{serializer}->{$type}) {
