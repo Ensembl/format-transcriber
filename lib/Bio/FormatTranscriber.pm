@@ -269,21 +269,12 @@ sub write_record {
     my $self = shift;
     my $record = shift;
 
-    #print "write_record, OBJECT: " . Dumper( $OBJECTS );
-
     # What's the format of the record being written
     my $format = (split '::', ref($record))[-1];
-    #print "format of record ($record) to be written: $format\n";
-
-    # adding in output obj type as not yet defined anywhere
-    # $self->{output_obj} = $OBJECTS->{$format};
-    #print "Output format should be: ". $self->{out_format} ."\n";
-    # exit;
-    # print Dumper $self->{output_obj};
 
     # we only need to print out GTF/GFF3/Fasta so will
     # explicitly work with these formats only
-    # taken from GFFSerializer line 62;
+    # strand conversion taken from GFFSerializer line 62;
     my %strand_conversion = ( '1' => '+', '0' => '.', '-1' => '-');
     if ($format eq "ColumnBasedGeneric") {
 
@@ -296,33 +287,49 @@ sub write_record {
             my $value = $record->{ $field } || ".";
             if ($field eq "attributes") {
                 my $attrib_keys = $record->{$field};
-                #print "attrib keys: ". Dumper($attrib_keys) . "\n";
-                if ($self->{out_format} eq "GFF3") {
-                    # based on rule here https://github.com/Ensembl/ensembl-io/blob/main/modules/Bio/EnsEMBL/Utils/IO/GFFSerializer.pm#L226
-                    my @ordered_keys = qw(ID Name Alias Parent Target Gap Derives_from Note Dbxref Ontology_term Is_circular);
-                    foreach my $attrib_key (sort keys %{ $attrib_keys }) {
-                        #print "key: $attrib_key\n";
-                        # add to end of ordered keys if not already present
-                        if (!grep /$attrib_key/, @ordered_keys) {
-                            push @ordered_keys, $attrib_key;
-                        }
+                # based on rule here https://github.com/Ensembl/ensembl-io/blob/main/modules/Bio/EnsEMBL/Utils/IO/GFFSerializer.pm#L226
+                my @ordered_keys = qw(ID Name Alias Parent Target Gap Derives_from Note Dbxref Ontology_term Is_circular);
+                foreach my $attrib_key (sort keys %{ $attrib_keys }) {
+                    # add to end of ordered keys if not already present
+                    if (!grep /$attrib_key/, @ordered_keys) {
+                        push @ordered_keys, $attrib_key;
                     }
-                    #print "Ordered keys: @ordered_keys\n";
-                    #print $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
-                    print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
-                } elsif ($self->{out_format} eq "GTF") {
-                    #print $OBJECTS->{$format}->combine_fields($record->$field, undef, '; ', 1, ' ', '"');
-                    print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->$field, undef, '; ', 1, ' ', '"') . "\n";
                 }
-                # exit;
+                print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
             } else {
-                # print "$field => $value\n";
-                #print "$value\t";
                 print { $self->{out_handle} } "$value\t";
             }
         }
         # exit;
     # only print out FASTA sequence if output is GFF3 or FASTA output formats
+    } elsif ($format eq "GTF") {
+
+        # convert strand from numeric back to its original format
+        $record->{'strand'} = $strand_conversion{$record->{'strand'}};
+
+        # process fields and print out in correct order
+        my $rec_fields = $record->fields;
+        print "rec_fields: ".Dumper($rec_fields)."\n";
+        foreach my $field ( @$rec_fields ) {
+            my $value = $record->{ $field } || ".";
+            if ($field eq "attributes") {
+                my $attrib_keys = $record->{$field};
+                my @ordered_keys = qw(gene_id gene_version transcript_id transcript_version gene_name gene_source gene_biotype transcript_name transcript_source transcript_biotype);
+                foreach my $attrib_key (sort keys %{ $attrib_keys }) {
+                    # add to end of ordered keys if not already present
+                    if (!grep /$attrib_key/, @ordered_keys) {
+                        push @ordered_keys, $attrib_key;
+                    }
+                }
+                print "ordered keys @ordered_keys\n";
+                print $OBJECTS->{'ColumnBasedGeneric'}->combine_fields($record->$field, \@ordered_keys, '; ', 1, ' ', '"') . "\n";
+                print { $self->{out_handle} } $OBJECTS->{'ColumnBasedGeneric'}->combine_fields($record->$field, \@ordered_keys, '; ', 1, ' ', '"') . "\n";
+            } else {
+                    print "$value\t";
+                    print { $self->{out_handle} } "$value\t";
+            }
+        }
+
     } elsif (($format eq "Fasta") && $self->{out_format} ne "GTF") {
         my $serializer = $self->get_serializer_by_type($format);
         #print "format is $format\n";  
