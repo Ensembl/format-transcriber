@@ -73,19 +73,9 @@ my $OBJECTS = {FASTA => 'Bio::EnsEMBL::IO::Object::Fasta',
                GTF   => 'Bio::EnsEMBL::IO::Writer::GTF',
                ColumnBasedGeneric => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric'
 };
-            #    GFF3  => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric',
-            #    ColumnBasedGeneric => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric'
 
 my $SERIALIZERS = {Fasta => 'Bio::EnsEMBL::Utils::IO::FASTASerializer',
 };
-                #    ColumnBasedGeneric => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric'
-                #    ColumnBasedGeneric  => 'Bio::EnsEMBL::IO::Writer::GFF3', # try this in %OBJECTS
-                    #GFF3  => 'Bio::EnsEMBL::Utils::IO::GFFSerializer',
-
-use Data::Dumper;
-#print Dumper( $PARSERS );
-#print Dumper( $OBJECTS );
-#print Dumper( $SERIALIZERS );
 
 =head2 new
 
@@ -110,7 +100,7 @@ sub new {
     # Ensure we have a valid format for transcribing
     $self->{format} = uc($format);
     unless( $PARSERS->{ $self->{format} } ) {
-	throw("Format $format is not a valid format");
+	    throw("Format $format is not a valid format");
     }
 
     # If we've been asked to convert the format, load the new
@@ -124,8 +114,6 @@ sub new {
 
 	$self->{output_obj} = $OBJECTS->{ $self->{out_format} };
 	eval "use $self->{output_obj}";
-    #print "use ".$self->{output_obj}."\n";
-    # exit;
 	if($@) {
 	    throw("Error loading module for output format $output_format: $@" );
 	}
@@ -137,19 +125,16 @@ sub new {
 
     # Initialize the parsers and filters
     $self->{parser_obj} = $PARSERS->{ $self->{format} };
-    #print $self->{parser_obj} . "\n"; 
     eval "use $self->{parser_obj}";
     if($@) {
-	throw("Error loading module for format $format: $@");
+	    throw("Error loading module for format $format: $@");
     }
 
     # Create the processor for records for the given format
-    #print $self->{format} ." vs $format\n";
     my $processor = 'Bio::FormatTranscriber::Processor::' . $self->{format};
-    #print "Processor: $processor\n";
     eval "use $processor";
     if($@) {
-	throw("Error loading processor module for format $format: $@");
+	    throw("Error loading processor module for format $format: $@");
     }
     $self->{processor} = "$processor"->new(-CONFIG => $self->{config});
 
@@ -181,10 +166,7 @@ sub transcribe_file {
     {
         $parser = "$self->{parser_obj}"->open($infile);
         $self->{parser} = $parser;
-        #print "self parser: $parser\n";
     }
-    #print "parser: " . Dumper($parser);
-    # exit;
 
     # Use the handle we've been passed or create the output handle
     if(openhandle($outfile)) {
@@ -202,41 +184,19 @@ sub transcribe_file {
     # So call the processor's metadata handler giving it the output handle so
     # it can write the lines out.
     if($parser->can('set_metadata_callback')) {
-        # print "CAN SET METADATA CALLBACK\n";
-        # foreach my $line (<$infile>) {
-        #     chomp $line;
-        #     if ($line =~ /^#+/) {
-        #         print "$line\n" ;
-        #         $self->{processor}->process_metadata($line, $self->{out_handle});
-        #     }
-        # }
-        # getting line via shift gives it the input file, not a line
         my $callback = sub { my $line = shift; $self->{processor}->process_metadata($line, $self->{out_handle}); };
-        # my $line = shift;
-        # print "line: ".Dumper($line)."\n";
-        # print $self->{processor}->process_metadata($line, $self->{out_handle});
-        # print "CALLBACK: ".Dumper($callback)."\n";
         $parser->set_metadata_callback($callback);
-        # exit;
     }
 
     # Because the Fasta parser is mixed case we need to be a little ugly in
     # how we get the format to pass to the writer.
     my $format_str = (split '::', $self->{parser})[-1];
-    #print "format_str (after parsing): $format_str\n";
-    #print "parser: " . Dumper($parser). "\n";
 
     # This will handle looping through GXF and Fasta type files which the
     # parsers can produce objects for.
     while($parser->next()) {
 	my $rec = $self->{processor}->process_record($parser->create_object);
-        #print "rec: " . Dumper ($rec);
-        #print "format_str (while in parser loop): $format_str\n";
-        #print "Calling write_record for \$rec of object $self\n";
 	    $self->write_record($rec);
-	    # unless($rec->{delete});
-        # print "HERE!\n";
-        # exit;
     }
 
     # More dirtiness, if we're parsing a GFF3 or similar that can have an
@@ -300,7 +260,6 @@ sub write_record {
                 print { $self->{out_handle} } "$value\t";
             }
         }
-        # exit;
     # only print out FASTA sequence if output is GFF3 or FASTA output formats
     } elsif ($format eq "GTF") {
 
@@ -309,7 +268,6 @@ sub write_record {
 
         # process fields and print out in correct order
         my $rec_fields = $record->fields;
-        print "rec_fields: ".Dumper($rec_fields)."\n";
         foreach my $field ( @$rec_fields ) {
             my $value = $record->{ $field } || ".";
             if ($field eq "attributes") {
@@ -321,107 +279,17 @@ sub write_record {
                         push @ordered_keys, $attrib_key;
                     }
                 }
-                print "ordered keys @ordered_keys\n";
-                print $OBJECTS->{'ColumnBasedGeneric'}->combine_fields($record->$field, \@ordered_keys, '; ', 1, ' ', '"') . "\n";
                 print { $self->{out_handle} } $OBJECTS->{'ColumnBasedGeneric'}->combine_fields($record->$field, \@ordered_keys, '; ', 1, ' ', '"') . "\n";
             } else {
-                    print "$value\t";
                     print { $self->{out_handle} } "$value\t";
             }
         }
 
     } elsif (($format eq "Fasta") && $self->{out_format} ne "GTF") {
         my $serializer = $self->get_serializer_by_type($format);
-        #print "format is $format\n";  
         $serializer->print_Seq($record);
     }
 
-    # If we've been asked to do a format conversion, try to
-    # cast the object to the proper type so it knows how to
-    # write itself. This should work for all types derived
-    # from FieldBased, but will likely blow up spectactularly
-    # for any incompatible format conversions.
-    # if($self->{output_obj}) {
-	#     bless $record, $self->{output_obj};
-    # } else {
-    #     print "No output object defined!\n";
-    #     # exit;
-    # }
-
-    # If the object knows how to turn itself in to it's native format,
-    # let it take care of itself
-    # if($record->can('create_record')) {
-    #     print { $self->{out_handle} } $record->create_record($record);
-    #     print Dumper($record) . "\n";
-    #     print "CAN CREATE RECORD\n";
-    #     print $record->create_record($record) . "\n"; # TRY CHANGING THIS TO OBJECT->CREATE_RECORD to print? or just use write method?!!
-    #     exit;
-    # # If the format is GTF, get the code to call combine_fields method
-    # # in Bio::EnsEMBL::IO::Writer::GTF.
-    # } elsif($OBJECTS->{$format}) {
-    #     print "NEEDS OBJ CONVERSION\n";
-    #     # TODO: try making a new constructor obj of this format to help with strand conversion
-    #     # my $write_obj = $self->{output_obj}->new();
-    #     # print Dumper($self);
-    #     # exit;
-    #     my @rec_fields = @{ $record->{'fields'} };
-    #     foreach my $field ( @rec_fields ) {
-    #         my $value = $record->{ $field } || ".";
-    #         if ($field eq "attributes") {
-    #             print $OBJECTS->{$format}->combine_fields($record->{$field}) . "\n";
-    #             print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->{$field});
-    #         } else {
-    #             # print "$field => $value\n";
-    #             print "$value\t";
-    #             print { $self->{out_handle} } "$value\t";
-    #         }
-    #     }
-    #     # exit;
-    #     # print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record) . "\n";
-    #     # print { $self->{out_handle} } Bio::EnsEMBL::IO::Writer::GFF3->combine_fields($record) . "\n";
-    #     # my $translator = 'Bio::EnsEMBL::IO::Writer::GFF3';
-    #     # print { $self->{out_handle} } $OBJECTS->{$format}->write($record, $translator) . "\n";
-    # #    print { $self->{out_handle} } $OBJECTS->{$format}->concatenate_fields($record) . "\n";
-    #     # print Dumper($record->{attributes});
-    #     # print "self:".Dumper($self).".\n";
-    #     print "FORMAT IS $format.\n";
-    #     # exit;
-    # # Otherwise use the external serializer
-    # # PROBLEM - ALL THE SELF INFO SUCH AS out_handle IS LOST
-    # # ELSIF ASSUMPTION THAT IS GFF3 FORMAT, USE SERIALIZERS?
-    # } elsif($SERIALIZERS->{$format}) {
-	# my $serializer = $self->get_serializer_by_type($format);
-    # print "serializer:".Dumper($serializer)."\n";
-    # print "format: $format\n";
-    #     if ($format eq "Fasta") {
-    #         print "format is $format\n";  
-    #         $serializer->print_Seq($record);
-    #     } else {
-    #         print "Format is not fasta so not printing out seq\n";
-    #         print "Rec going to serializer: ".Dumper($record)."\n";
-    #         print "serialiser format: ".$SERIALIZERS->{$format}."\n";
-    #         # explicitly define writer handle as serializer
-    #         # loses lots of things that self has
-    #         $serializer->{writer_handle} = $self->{out_handle};
-    #         print "out format: ".$serializer->{writer_handle}."\n";
-    #         # my $writer = Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric->new;
-    #         # $writer->write($record);
-    #         # print $serializer->combine_fields($record)."\n";
-    #         print $serializer->write($record, 'Bio::EnsEMBL::IO::Translator::ColumnBasedGeneric')."\n";
-    #         # print $serializer->write($record)."\n";
-    #         # exit;
-    #         ## NEED TO FIND A WAY TO PARSE RECORD OBJECT AND GET ATTRIBS OUT
-
-    #         # print $serializer->concatenate_fields($record->{attributes})."\n";
-    #         # print $serializer->write($record, 'Bio::EnsEMBL::IO::Object::ColumnBasedGeneric');
-    #         # print "fields" .$serializer->fields($record)."\n";
-    #         # $serializer->print_feature($record);
-
-    #     }
-    # } else {
-    #   print "Unable to get format for SERIALIZERS object. Dumping out SERIALIZERS: ".Dumper($SERIALIZERS)."\n";
-	# throw("Can't write record of type " . ref($record));
-    # }
 }
 
 =head2 get_serializer_by_type
