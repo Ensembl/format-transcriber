@@ -100,7 +100,7 @@ sub new {
     # Ensure we have a valid format for transcribing
     $self->{format} = uc($format);
     unless( $PARSERS->{ $self->{format} } ) {
-	    throw("Format $format is not a valid format");
+        throw("Format $format is not a valid format");
     }
 
     # If we've been asked to convert the format, load the new
@@ -127,14 +127,14 @@ sub new {
     $self->{parser_obj} = $PARSERS->{ $self->{format} };
     eval "use $self->{parser_obj}";
     if($@) {
-	    throw("Error loading module for format $format: $@");
+	throw("Error loading module for format $format: $@");
     }
 
     # Create the processor for records for the given format
     my $processor = 'Bio::FormatTranscriber::Processor::' . $self->{format};
     eval "use $processor";
     if($@) {
-	    throw("Error loading processor module for format $format: $@");
+        throw("Error loading processor module for format $format: $@");
     }
     $self->{processor} = "$processor"->new(-CONFIG => $self->{config});
 
