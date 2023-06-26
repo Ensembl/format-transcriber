@@ -303,8 +303,6 @@ sub get_serializer_by_type {
     my $self = shift;
     my $type = shift;
 
-    #print "Attemping to get serializer by type: $type\n";
-
     # If we don't have an existing serializer
     unless($self->{serializer}->{$type}) {
     
