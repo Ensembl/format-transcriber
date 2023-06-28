@@ -55,20 +55,26 @@ use Bio::EnsEMBL::IO::Writer;
 use Bio::FormatTranscriber::Config qw/parse_config/;
 use Scalar::Util qw/openhandle/;
 
+use Bio::EnsEMBL::IO::Object::ColumnBasedGeneric;
 use Bio::EnsEMBL::IO::Writer::GTF qw/combine_fields/;
+use Bio::EnsEMBL::IO::Writer::GFF3 qw/combine_fields/;
+use Bio::EnsEMBL::IO::Translator::ColumnBasedGeneric;
 
-my $PARSERS = {FASTA => 'Bio::EnsEMBL::IO::Parser::Fasta',
-                     GFF3  => 'Bio::FormatTranscriber::Parser::GFF3',
-                     GTF   => 'Bio::FormatTranscriber::Parser::GTF',
-                     GFF2  => 'Bio::EnsEMBL::IO::Parser::GTF'
+use Bio::EnsEMBL::Utils::IO::GFFSerializer;
+
+my $PARSERS = { FASTA => 'Bio::EnsEMBL::IO::Parser::Fasta',
+                GFF2  => 'Bio::EnsEMBL::IO::Parser::GTF',
+                GTF   => 'Bio::FormatTranscriber::Parser::GTF',
+                GFF3  => 'Bio::FormatTranscriber::Parser::GFF3',
 };
 
-my $OBJECTS = {FASTA => 'Bio::EnsEMBL::IO::Object::ColumnBasedGeneric',
-               GFF3  => 'Bio::EnsEMBL::IO::Object::ColumnBasedGeneric',
-               GTF   => 'Bio::EnsEMBL::IO::Writer::GTF'
+my $OBJECTS = {FASTA => 'Bio::EnsEMBL::IO::Object::Fasta',
+               GFF3  => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric',
+               GTF   => 'Bio::EnsEMBL::IO::Writer::GTF',
+               ColumnBasedGeneric => 'Bio::EnsEMBL::IO::Writer::ColumnBasedGeneric'
 };
 
-my $SERIALIZERS = {Fasta => 'Bio::EnsEMBL::Utils::IO::FASTASerializer'
+my $SERIALIZERS = {Fasta => 'Bio::EnsEMBL::Utils::IO::FASTASerializer',
 };
 
 =head2 new
@@ -94,7 +100,7 @@ sub new {
     # Ensure we have a valid format for transcribing
     $self->{format} = uc($format);
     unless( $PARSERS->{ $self->{format} } ) {
-	throw("Format $format is not a valid format");
+        throw("Format $format is not a valid format");
     }
 
     # If we've been asked to convert the format, load the new
@@ -128,7 +134,7 @@ sub new {
     my $processor = 'Bio::FormatTranscriber::Processor::' . $self->{format};
     eval "use $processor";
     if($@) {
-	throw("Error loading processor module for format $format: $@");
+        throw("Error loading processor module for format $format: $@");
     }
     $self->{processor} = "$processor"->new(-CONFIG => $self->{config});
 
@@ -158,8 +164,8 @@ sub transcribe_file {
     # Create the parser to read the input file
     my $parser;
     {
-	$parser = "$self->{parser_obj}"->open($infile);
-	$self->{parser} = $parser;
+        $parser = "$self->{parser_obj}"->open($infile);
+        $self->{parser} = $parser;
     }
 
     # Use the handle we've been passed or create the output handle
@@ -178,8 +184,8 @@ sub transcribe_file {
     # So call the processor's metadata handler giving it the output handle so
     # it can write the lines out.
     if($parser->can('set_metadata_callback')) {
-	my $callback = sub { my $line = shift; $self->{processor}->process_metadata($line, $self->{out_handle}); };
-	$parser->set_metadata_callback($callback);
+        my $callback = sub { my $line = shift; $self->{processor}->process_metadata($line, $self->{out_handle}); };
+        $parser->set_metadata_callback($callback);
     }
 
     # Because the Fasta parser is mixed case we need to be a little ugly in
@@ -190,8 +196,7 @@ sub transcribe_file {
     # parsers can produce objects for.
     while($parser->next()) {
 	my $rec = $self->{processor}->process_record($parser->create_object);
-	$self->write_record($rec)
-	    unless($rec->{delete});
+	    $self->write_record($rec) unless($rec->{delete});
     }
 
     # More dirtiness, if we're parsing a GFF3 or similar that can have an
@@ -227,32 +232,64 @@ sub write_record {
     # What's the format of the record being written
     my $format = (split '::', ref($record))[-1];
 
-    # If we've been asked to do a format conversion, try to
-    # cast the object to the proper type so it knows how to
-    # write itself. This should work for all types derived
-    # from FieldBased, but will likely blow up spectactularly
-    # for any incompatible format conversions.
-    if($self->{output_obj}) {
-	bless $record, $self->{output_obj};
+    # we only need to print out GTF/GFF3/Fasta so will
+    # explicitly work with these formats only
+    # strand conversion taken from GFFSerializer line 62;
+    my %strand_conversion = ( '1' => '+', '0' => '.', '-1' => '-');
+    if ($format eq "ColumnBasedGeneric") {
+
+        # convert strand from numeric back to its original format
+        $record->{'strand'} = $strand_conversion{$record->{'strand'}};
+
+        # process fields and print out in correct order
+        my @rec_fields = @{ $record->{'fields'} };
+        foreach my $field ( @rec_fields ) {
+            my $value = $record->{ $field } || ".";
+            if ($field eq "attributes") {
+                my $attrib_keys = $record->{$field};
+                # based on rule here https://github.com/Ensembl/ensembl-io/blob/main/modules/Bio/EnsEMBL/Utils/IO/GFFSerializer.pm#L226
+                my @ordered_keys = qw(ID Name Alias Parent Target Gap Derives_from Note Dbxref Ontology_term Is_circular);
+                foreach my $attrib_key (sort keys %{ $attrib_keys }) {
+                    # add to end of ordered keys if not already present
+                    if (!grep /$attrib_key/, @ordered_keys) {
+                        push @ordered_keys, $attrib_key;
+                    }
+                }
+                print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record->{$field}, \@ordered_keys) . "\n";
+            } else {
+                print { $self->{out_handle} } "$value\t";
+            }
+        }
+    # only print out FASTA sequence if output is GFF3 or FASTA output formats
+    } elsif ($format eq "GTF") {
+
+        # convert strand from numeric back to its original format
+        $record->{'strand'} = $strand_conversion{$record->{'strand'}};
+
+        # process fields and print out in correct order
+        my $rec_fields = $record->fields;
+        foreach my $field ( @$rec_fields ) {
+            my $value = $record->{ $field } || ".";
+            if ($field eq "attributes") {
+                my $attrib_keys = $record->{$field};
+                my @ordered_keys = qw(gene_id gene_version transcript_id transcript_version gene_name gene_source gene_biotype transcript_name transcript_source transcript_biotype);
+                foreach my $attrib_key (sort keys %{ $attrib_keys }) {
+                    # add to end of ordered keys if not already present
+                    if (!grep /$attrib_key/, @ordered_keys) {
+                        push @ordered_keys, $attrib_key;
+                    }
+                }
+                print { $self->{out_handle} } $OBJECTS->{'ColumnBasedGeneric'}->combine_fields($record->$field, \@ordered_keys, '; ', 1, ' ', '"') . "\n";
+            } else {
+                    print { $self->{out_handle} } "$value\t";
+            }
+        }
+
+    } elsif (($format eq "Fasta") && $self->{out_format} ne "GTF") {
+        my $serializer = $self->get_serializer_by_type($format);
+        $serializer->print_Seq($record);
     }
 
-    # If the object knows how to turn itself in to it's native format,
-    # let it take care of itself
-    if($record->can('create_record')) {
-	print { $self->{out_handle} } $record->create_record;
-
-    # If the format is GTF, get the code to call combine_fields method
-    # in Bio::EnsEMBL::IO::Writer::GTF.
-    } elsif($OBJECTS->{$format}) {
-	print { $self->{out_handle} } $OBJECTS->{$format}->combine_fields($record) . "\n";
-
-    # Otherwise use the external serializer
-    } elsif($SERIALIZERS->{$format}) {
-	my $serializer = $self->get_serializer_by_type($format);
-	$serializer->print_Seq($record);
-    } else {
-	throw("Can't write record of type" . ref($record));
-    }
 }
 
 =head2 get_serializer_by_type
